@@ -1,4 +1,4 @@
-# 啟動 Gemma4 閘道器（本機）。對外請另開 Cloudflare Tunnel，見 README。
+﻿# 啟動 Gemma4 閘道器（本機）。對外請另開 Cloudflare Tunnel，見 README。
 $ErrorActionPreference = "Stop"
 $env:PYTHONIOENCODING = "utf-8"   # Windows 主控台印中文不崩
 
