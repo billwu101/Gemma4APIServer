@@ -63,8 +63,21 @@ if (Test-Path $envFile) {
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $trigger.Delay = 'PT20S'
 
-$action = New-ScheduledTaskAction -Execute $Python `
-    -Argument "-m uvicorn main:app --host $bindHost --port $port" `
+# 透過 wrapper 跑，才能把 uvicorn 輸出導到 logs\gateway.log 供觀察
+# （排程工作直接 CreateProcess 沒辦法重導向）。
+# shell 優先序：穩定的 WindowsApps alias（不帶版號、pwsh 升級不會失效）
+# -> Get-Command 給的版號路徑 -> 內建 5.1（永遠在、session 0 一定解析得到）。
+$stableAlias = "$env:LOCALAPPDATA\Microsoft\WindowsApps\pwsh.exe"
+$shell = $null
+foreach ($cand in @($stableAlias, (Get-Command pwsh -ErrorAction SilentlyContinue).Source,
+                    "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe")) {
+    if ($cand -and (Test-Path $cand)) { $shell = $cand; break }
+}
+$wrapper = Join-Path $Project 'run-gateway.ps1'
+if (-not (Test-Path $wrapper)) { throw "找不到 wrapper：$wrapper" }
+
+$action = New-ScheduledTaskAction -Execute $shell `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$wrapper`"" `
     -WorkingDirectory $Project   # 必須：.env / usage.db 都是相對路徑
 
 Register-ScheduledTask -TaskName $GatewayTask -Force `

@@ -61,6 +61,15 @@ Stop-ScheduledTask  -TaskName 'Gemma4 Gateway'
 Start-ScheduledTask -TaskName 'Gemma4 Gateway'
 ```
 
+**觀察 log**：工作透過 `run-gateway.ps1` 啟動，uvicorn 輸出（含存取紀錄、時間戳）
+會附加到 `logs\gateway.log`。另開一個視窗即時追：
+
+```powershell
+.\tail-log.ps1        # = Get-Content logs\gateway.log -Wait -Tail 40
+```
+
+`logs\` 在 `.gitignore` 裡，不進版控。
+
 > 排程工作跑起來的行程是 S4U token，**標準權限殺不掉**（`Access is denied`）。
 > 要手動終止得用 `Stop-ScheduledTask`，或提權 `taskkill /F /PID`。
 
