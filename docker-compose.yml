@@ -15,6 +15,8 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: gemma4-ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"             # 模型常駐 GPU、永不因閒置卸載（直到容器停掉）
     volumes:
       - ollama-models:/root/.ollama       # 模型持久化，避免每次重拉 18GB
     # GPU 透傳（需 NVIDIA Container Toolkit）。沒有 GPU 的機器把整個 deploy 區塊註解掉即可
@@ -37,10 +39,24 @@ services:
     environment:
       OLLAMA_BASE_URL: http://ollama:11434  # 蓋掉 .env 的 localhost，改連 ollama 服務
       DB_PATH: /data/usage.db               # 導到掛載的 volume，用量記錄才不會隨容器消失
+      TZ: Asia/Taipei                       # log 時間顯示台灣時間（GMT+8），而非 UTC
     ports:
       - "0.0.0.0:8000:8000"                 # 綁所有介面，局域網可連（金鑰是唯一防線）
     volumes:
       - ./data:/data                        # usage.db 持久化
+    restart: unless-stopped
+
+  # Cloudflare 具名 tunnel。用 Zero Trust 後台建的 tunnel token 連出去，
+  # 走 Docker 內部網路把公網流量導到 gateway:8000。
+  # token 放 .env 的 CLOUDFLARE_TUNNEL_TOKEN；後台 Public Hostname 的 Service 填 http://gateway:8000。
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gemma4-cloudflared
+    depends_on:
+      - gateway
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     restart: unless-stopped
 
 volumes:
