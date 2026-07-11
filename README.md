@@ -62,10 +62,13 @@ Start-ScheduledTask -TaskName 'Gemma4 Gateway'
 ```
 
 **觀察 log**：工作透過 `run-gateway.ps1` 啟動，uvicorn 輸出（含存取紀錄、時間戳）
-會附加到 `logs\gateway.log`。另開一個視窗即時追：
+會附加到 `logs\gateway.log`。閘道器以 S4U 跑在 session 0，**行程本身沒有可見視窗**，
+所以觀察靠另開視窗即時追：
 
 ```powershell
-.\tail-log.ps1        # = Get-Content logs\gateway.log -Wait -Tail 40
+.\tail-log.ps1              # 手動開一個彩色 tail 視窗（依 HTTP 狀態碼分色）
+.\install-tail-window.ps1   # 在 Startup 放捷徑，每次登入自動開 tail 視窗（不需管理員）
+.\install-tail-window.ps1 -Uninstall
 ```
 
 `logs\` 在 `.gitignore` 裡，不進版控。
