@@ -1,0 +1,14 @@
+# 不進 build context / image
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+logs/
+data/
+usage.db
+.env                # 含金鑰，執行時由 compose env_file 注入，不烤進 image
+*.ps1               # Windows 部署腳本，容器用不到
+.python-version
+README.md
+CLAUDE.md

@@ -33,6 +33,34 @@ copy .env.example .env     # 編輯 .env 填入金鑰
 
 Python 版本由 `.python-version`（pyenv）釘在 3.12 —— `uvicorn[standard]` 的相依在 3.12 有現成 wheel，3.13 得自行編譯。
 
+## 1c. Docker 部署（閘道器 + Ollama 都入容器）
+
+`docker-compose.yml` 把閘道器與 Ollama 兩個服務一起帶起來，一鍵部署。
+
+需求：Docker Desktop（Windows 需 WSL2 後端）；GPU 透傳需 **NVIDIA Container Toolkit**
+（沒 GPU 也能跑，只是慢）。
+
+```powershell
+copy .env.example .env       # 填 API_KEYS（HOST/PORT 在容器內不生效，見下）
+docker compose up -d --build
+
+# 首次要把模型拉進 ollama 容器的 volume（只需一次，之後持久化）
+docker compose exec ollama ollama pull gemma4:26b
+
+# 測試
+curl http://localhost:8000/health
+docker compose logs -f gateway
+```
+
+- **閘道器連容器版 Ollama**：compose 用 `OLLAMA_BASE_URL=http://ollama:11434` 蓋掉 `.env` 的
+  `localhost`，走 Docker 內部網路連 `ollama` 服務。
+- **埠綁 `0.0.0.0:8000`**：局域網其他機器可直接連（`.env` 的 `HOST` 在容器內不生效，
+  容器一律綁 `0.0.0.0`，對外暴露由 port mapping 決定）。金鑰仍是唯一防線。
+- **持久化**：模型存在 `ollama-models` volume，用量 `usage.db` 存在 `./data`（`DB_PATH` 已導過去）。
+- ⚠️ **GPU 記憶體**：容器版 Ollama 會吃 GPU。若本機 tray app 的 Ollama 也載著同顆模型，
+  24GB VRAM 會不夠 —— 跑 compose 時建議先關掉本機 Ollama。
+- `.env` 不會烤進 image（`.dockerignore` 擋掉），執行時由 compose 的 `env_file` 注入。
+
 ## 1b. 開機自動啟動（Windows）
 
 以系統管理員身分開 PowerShell：

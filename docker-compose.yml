@@ -1,0 +1,47 @@
+# 完整部署：閘道器 + Ollama 都在容器內，一鍵 docker compose up。
+#
+# 需求：
+#   - Docker Desktop（Windows 需 WSL2 後端）
+#   - GPU 透傳需 NVIDIA Container Toolkit；沒有 GPU 也能跑，只是慢（改用 CPU）
+#
+# 首次啟動後要把模型拉進 ollama 容器的 volume（只需一次，之後持久化）：
+#   docker compose up -d
+#   docker compose exec ollama ollama pull gemma4:26b
+#
+# 注意：容器版 Ollama 會吃 GPU；若本機 tray app 的 Ollama 也載著同一顆模型，
+#       24GB VRAM 會不夠。跑這套 compose 時建議先關掉本機 Ollama。
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: gemma4-ollama
+    volumes:
+      - ollama-models:/root/.ollama       # 模型持久化，避免每次重拉 18GB
+    # GPU 透傳（需 NVIDIA Container Toolkit）。沒有 GPU 的機器把整個 deploy 區塊註解掉即可
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  gateway:
+    build: .
+    image: gemma4-gateway
+    container_name: gemma4-gateway
+    depends_on:
+      - ollama
+    env_file: .env                          # API_KEYS / DEFAULT_MODEL / ENABLE_THINKING
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434  # 蓋掉 .env 的 localhost，改連 ollama 服務
+      DB_PATH: /data/usage.db               # 導到掛載的 volume，用量記錄才不會隨容器消失
+    ports:
+      - "0.0.0.0:8000:8000"                 # 綁所有介面，局域網可連（金鑰是唯一防線）
+    volumes:
+      - ./data:/data                        # usage.db 持久化
+    restart: unless-stopped
+
+volumes:
+  ollama-models:
