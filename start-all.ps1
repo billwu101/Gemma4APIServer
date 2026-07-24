@@ -1,13 +1,17 @@
-﻿# 一鍵啟動全部 Docker 服務（ollama + gateway + cloudflared，一律重新 build），
+﻿# 一鍵啟動全部 Docker 服務（ollama + gateway + cloudflared），
 # 然後即時顯示 API 後台的連線情況。
-# 用法： .\start-all.ps1            build + 啟動，並在本視窗即時監看連線
-#        .\start-all.ps1 -NoWatch  build + 啟動，但不進監看
+# 預設沿用現有 image、不重新 build（避免每次啟動都在 Docker Desktop 多一筆建置紀錄）；
+# 改過程式碼或 Dockerfile 時才加 -Build。
+# 用法： .\start-all.ps1            啟動，並在本視窗即時監看連線
+#        .\start-all.ps1 -Build    重新 build 後再啟動（改過 .py / Dockerfile 時用）
+#        .\start-all.ps1 -NoWatch  啟動，但不進監看
 #
 # 監看畫面依 HTTP 狀態碼上色：2xx 綠 / 3xx 青 / 4xx 黃 / 5xx·錯誤 紅。
 # 在監看畫面按 Ctrl+C = 離開監看並「自動關閉全部服務」（等同 stop-all.ps1）。
 # 若只想啟動、不想按 Ctrl+C 就把服務關掉，改用 .\start-all.ps1 -NoWatch。
 param(
-    [switch]$NoWatch
+    [switch]$NoWatch,
+    [switch]$Build
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -21,9 +25,14 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 2) build 並啟動全部服務（一律 --build）
-Write-Host "build 並啟動服務（ollama + gateway + cloudflared）..." -ForegroundColor Cyan
-docker compose up -d --build
+# 2) 啟動全部服務。預設不 build（沿用現有 image，不會新增建置紀錄）；-Build 才重建
+if ($Build) {
+    Write-Host "重新 build 並啟動服務（ollama + gateway + cloudflared）..." -ForegroundColor Cyan
+    docker compose up -d --build
+} else {
+    Write-Host "啟動服務（沿用現有 image；要重建請加 -Build）..." -ForegroundColor Cyan
+    docker compose up -d
+}
 if ($LASTEXITCODE -ne 0) { Write-Host "compose 啟動失敗。" -ForegroundColor Red; exit 1 }
 
 # 3) 等 gateway 健康。讀 Docker 內建 healthcheck 狀態（在容器內跑，不受主機 proxy 影響）
